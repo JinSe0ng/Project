@@ -1,0 +1,95 @@
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+import numpy as np
+
+print("Gradient Boosting Regressor")
+
+# 데이터 생성
+data_text = {
+    "Year": [
+        1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014,
+        2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023
+    ],
+    "화학제품": [
+        32435063, 35471547, 37204117, 41210186, 43735315, 51172591, 52183285, 64288482, 69177992, 83939020, 85623478,
+        91278883, 100654420, 123950264, 130167048, 155493589, 175451926, 192086221, 180848343, 172624416, 170777035,
+        172604188, 190792248, 214807947, 198901922, 179029543, 229892509, 272261963, 253039994
+    ],
+    "최저시급": [
+        1170, 1275, 1400, 1485, 1525, 1600, 1865, 2100, 2275, 2510, 2840, 3100, 3480, 3770, 4000, 4110, 4320, 4580, 4860,
+        5210, 5580, 6030, 6470, 7530, 8350, 8590, 8720, 9160, 9620
+    ],
+    "GDP": [
+        452187.1, 507768.4, 560502.0, 556786.9, 613069.3, 675732.6, 732723.1, 813225.4, 868110.6, 942885.3, 995175.5,
+        1045663.2, 1134541.3, 1202972.9, 1255305.5, 1379460.2, 1448575.6, 1504674.1, 1570938.2, 1638484.8, 1740776.0,
+        1833026.6, 1934233.9, 2006974.5, 2040594.3, 2058466.5, 2221912.9, 2323781.5, 2401189.4
+    ],
+    "유가": [
+        12694.85, 14429.88, 15347.56, 20729.85, 20518.69, 29638.27, 28994.59, 31600.96, 32170.72, 40118.75, 51057.03,
+        62643.92, 63659.01, 87777.99, 78000.84, 89903.79, 120128.15, 125848.1, 112766.3, 101730.92, 56031.32, 48473.92,
+        64171.35, 74026.27, 70947.36, 47831.82, 75354.88, 115136.58, 104149.84
+    ],
+    "긍 부정": [
+        0, 0, 0, 1, 1, 1, 1, 0, 0.2, 0, 1, 1, 1, 0, 0, 1, -0.67, 0.88, 0, 1, 1, 1, 1, -1, 1, 0.33, 1, 1, 0
+    ]
+}
+
+data = pd.DataFrame(data_text)
+
+# Lag features 생성
+for lag in range(1, 5):
+    for col in ['최저시급', 'GDP', '유가', '긍 부정']:
+        data[f'{col}_lag{lag}'] = data[col].shift(lag)
+
+# 결측치 제거
+data = data.dropna()
+
+# Feature와 Target 설정
+lagged_features = [col for col in data.columns if 'lag' in col]
+X = data[lagged_features]
+y = data['화학제품']
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Gradient Boosting Regressor 모델 학습
+gbr_model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=42)
+gbr_model.fit(X_train, y_train)
+
+# Test 데이터 예측 및 MSE, MDE, R² 계산
+y_pred_gbr = gbr_model.predict(X_test)
+mse_gbr = mean_squared_error(y_test, y_pred_gbr)
+mde_gbr = np.mean(np.abs(y_test - y_pred_gbr))  # Mean Deviation Error
+r2_gbr = r2_score(y_test, y_pred_gbr)
+
+# 모든 데이터에 대한 예측
+y_pred_all = gbr_model.predict(X)
+
+# Actual vs Predicted 비교 데이터프레임 생성
+comparison_df = pd.DataFrame({
+    'Year': data['Year'],
+    'Actual 화학제품': y.values,
+    'Predicted 화학제품': y_pred_all
+})
+
+# CSV 파일로 저장
+comparison_df.to_csv('comparison_actual_predicted.csv', index=False)
+
+# 시각화
+plt.figure(figsize=(12, 6))
+plt.plot(data['Year'], y, label='Actual Values', marker='o', linestyle='-')
+plt.plot(data['Year'], y_pred_all, label='Predicted Values', marker='x', linestyle='--')
+plt.title('Actual vs Predicted By Gradient Boosting Regressor')
+plt.xlabel('Year')
+plt.ylabel('화학제품')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# MSE, MDE, R² 출력
+print(f"Mean Squared Error (MSE): {mse_gbr:.4f}")
+print(f"Mean Deviation Error (MDE): {mde_gbr:.4f}")
+print(f"R² Score: {r2_gbr:.4f}")
